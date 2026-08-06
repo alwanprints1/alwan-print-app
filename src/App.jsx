@@ -1026,12 +1026,21 @@ function inRange(dateStr, rangeId) {
   return true;
 }
 
-function ReportsScreen({ archivedInvoices }) {
+function ReportsScreen({ archivedInvoices, expenses = [], employees = [] }) {
   const [range, setRange] = useState("all");
-  const filtered = archivedInvoices.filter((a) => inRange(a.createdAt, range));
+  const [from,setFrom]=useState(""); const [to,setTo]=useState("");
+  const dateMatches=(date)=>range==="custom"?(!from||new Date(date)>=new Date(from))&&(!to||new Date(date)<=new Date(to+"T23:59:59")):inRange(date,range);
+  const filtered = archivedInvoices.filter((a) => dateMatches(a.createdAt));
+  const filteredExpenses=expenses.filter(e=>dateMatches(e.date||e.createdAt));
 
   const totalRevenue = filtered.reduce((s, a) => s + a.items.reduce((s2, it) => s2 + it.price, 0), 0);
   const invoiceCount = filtered.length;
+  const received=filtered.reduce((sum,a)=>sum+((a.payments||[]).reduce((s,p)=>s+Number(p.amount||0),0)||Number(a.paidAmount||0)),0);
+  const receivables=Math.max(0,totalRevenue-received);
+  const expenseTotal=filteredExpenses.reduce((s,e)=>s+Number(e.amount||0),0);
+  const salaryTotal=employees.filter(e=>e.active).reduce((s,e)=>s+Number(e.baseSalary||0),0);
+  const profitBefore=Math.max(0,received-expenseTotal-salaryTotal);
+  const charity=profitBefore*.05, employeeBonus=profitBefore*.15, finalProfit=profitBefore*.8;
 
   const byType = {};
   const byProduct = {};
@@ -1054,9 +1063,11 @@ function ReportsScreen({ archivedInvoices }) {
         {REPORT_RANGES.map((r) => (
           <button key={r.id} onClick={() => setRange(r.id)} className={"shrink-0 rounded-full px-4 py-2 text-sm font-medium border " + (range === r.id ? "bg-stone-900 text-white border-stone-900" : "bg-white text-stone-600 border-stone-300")}>{r.label}</button>
         ))}
+        <button onClick={()=>setRange("custom")} className={"shrink-0 rounded-full px-4 py-2 text-sm font-medium border "+(range==="custom"?"bg-blue-600 text-white border-blue-500":"bg-white text-stone-600 border-stone-300")}>فترة مخصصة</button>
       </div>
+      {range==="custom"&&<div className="bg-white rounded-2xl border border-stone-200 p-4 grid grid-cols-2 gap-3"><Field label="من تاريخ"><input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="w-full rounded-lg border px-3 py-2"/></Field><Field label="إلى تاريخ"><input type="date" value={to} onChange={e=>setTo(e.target.value)} className="w-full rounded-lg border px-3 py-2"/></Field></div>}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <div className="bg-white rounded-2xl border border-stone-200 p-4 text-center">
           <div className="text-[11px] text-stone-400">إجمالي المبيعات</div>
           <div className="text-xl font-bold text-stone-900 tabular-nums" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{egp(totalRevenue)}</div>
@@ -1065,6 +1076,13 @@ function ReportsScreen({ archivedInvoices }) {
           <div className="text-[11px] text-stone-400">عدد الفواتير</div>
           <div className="text-xl font-bold text-stone-900 tabular-nums" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{invoiceCount}</div>
         </div>
+        <div className="rounded-2xl bg-emerald-600 p-4 text-center"><div className="text-xs">إجمالي الوارد</div><b className="text-xl">{egp(received)}</b></div>
+        <div className="rounded-2xl bg-blue-600 p-4 text-center"><div className="text-xs">إجمالي المؤجلات</div><b className="text-xl">{egp(receivables)}</b></div>
+        <div className="rounded-2xl bg-orange-500 p-4 text-center"><div className="text-xs">إجمالي المصروفات</div><b className="text-xl">{egp(expenseTotal)}</b></div>
+        <div className="rounded-2xl bg-indigo-600 p-4 text-center"><div className="text-xs">إجمالي المرتبات</div><b className="text-xl">{egp(salaryTotal)}</b></div>
+        <div className="rounded-2xl bg-pink-600 p-4 text-center"><div className="text-xs">حافز الموظفين 15%</div><b className="text-xl">{egp(employeeBonus)}</b></div>
+        <div className="rounded-2xl bg-green-600 p-4 text-center"><div className="text-xs">الصدقة 5%</div><b className="text-xl">{egp(charity)}</b></div>
+        <div className="rounded-2xl bg-red-600 p-4 text-center md:col-span-2"><div className="text-xs">صافي ربح المطبعة 80%</div><b className="text-2xl">{egp(finalProfit)}</b></div>
       </div>
 
       <div className="bg-white rounded-2xl border border-stone-200 p-4">
@@ -1450,10 +1468,15 @@ function StatCard({ label, value, hint, color = "cyan" }) {
   return <div className={`rounded-2xl bg-gradient-to-br ${colors[color]} p-4 text-white shadow-lg`}><div className="text-xs opacity-75">{label}</div><div className="text-2xl font-bold mt-2 tabular-nums">{value}</div>{hint && <div className="text-[10px] opacity-70 mt-1">{hint}</div>}</div>;
 }
 
-function DashboardScreen({ archivedInvoices, orders, production, canViewFinance, user }) {
-  const todayInvoices = archivedInvoices.filter((a) => new Date(a.createdAt).toDateString() === new Date().toDateString());
+function DashboardScreen({ archivedInvoices, orders, production, canViewFinance, user, expenses = [], employees = [] }) {
+  const [range,setRange]=useState("today");const[from,setFrom]=useState("");const[to,setTo]=useState("");
+  const matchDate=(date)=>range==="custom"?(!from||new Date(date)>=new Date(from))&&(!to||new Date(date)<=new Date(to+"T23:59:59")):inRange(date,range);
+  const rangeInvoices=archivedInvoices.filter(a=>matchDate(a.createdAt));
+  const todayInvoices = rangeInvoices;
   const todaySales = todayInvoices.reduce((s, a) => s + invoiceTotal(a), 0);
-  const totalSales = archivedInvoices.reduce((s, a) => s + invoiceTotal(a), 0);
+  const totalSales = rangeInvoices.reduce((s, a) => s + invoiceTotal(a), 0);
+  const received=rangeInvoices.reduce((s,a)=>s+((a.payments||[]).reduce((x,p)=>x+Number(p.amount||0),0)||Number(a.paidAmount||0)),0);
+  const rangeExpenses=expenses.filter(e=>matchDate(e.date||e.createdAt)).reduce((s,e)=>s+Number(e.amount||0),0);
   const productMap = {};
   archivedInvoices.forEach((a) => (a.items || []).forEach((it) => { productMap[it.description] = (productMap[it.description] || 0) + (Number(it.qty) || 1); }));
   const top = Object.entries(productMap).sort((a,b) => b[1] - a[1]).slice(0, 4);
@@ -1461,9 +1484,12 @@ function DashboardScreen({ archivedInvoices, orders, production, canViewFinance,
   const overdue = archivedInvoices.filter(inv=>{const due=inv.dueDate?new Date(inv.dueDate):new Date(inv.createdAt);const debt=invoiceTotal(inv)-((inv.payments||[]).reduce((s,p)=>s+Number(p.amount||0),0)||Number(inv.paidAmount||0));return debt>0&&(Date.now()-due.getTime())/(864e5)>=15;});
   return <div className="space-y-5">
     <div className="rounded-3xl bg-white p-5 border border-slate-200 shadow-sm"><div className="text-xs text-cyan-600 font-semibold">صباح الشغل والإنجاز 👋</div><h2 className="text-xl font-bold text-slate-900 mt-1">أهلاً، {user.name}</h2><p className="text-xs text-slate-400 mt-1">نظرة سريعة على حركة مطبعة ألوان اليوم</p></div>
-    <div className="grid grid-cols-2 gap-3">
-      {canViewFinance && <StatCard label="مبيعات اليوم" value={`${egp(todaySales)} ج.م`} hint={`${todayInvoices.length} فاتورة`} color="cyan" />}
-      {canViewFinance && <StatCard label="إجمالي المبيعات" value={`${egp(totalSales)} ج.م`} hint="كل الفترات" color="slate" />}
+    {canViewFinance&&<div className="flex gap-2 flex-wrap">{REPORT_RANGES.filter(r=>r.id!=="all").map(r=><button key={r.id} onClick={()=>setRange(r.id)} className={`rounded-xl px-4 py-2 text-xs ${range===r.id?"bg-blue-600":"bg-white border border-slate-200"}`}>{r.label}</button>)}<button onClick={()=>setRange("custom")} className={`rounded-xl px-4 py-2 text-xs ${range==="custom"?"bg-blue-600":"bg-white border border-slate-200"}`}>فترة مخصصة</button></div>}
+    {canViewFinance&&range==="custom"&&<div className="grid grid-cols-2 gap-3 max-w-xl"><input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="rounded-xl border px-3 py-2"/><input type="date" value={to} onChange={e=>setTo(e.target.value)} className="rounded-xl border px-3 py-2"/></div>}
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {canViewFinance && <StatCard label="إجمالي الشغل" value={`${egp(totalSales)} ج.م`} hint={`${todayInvoices.length} فاتورة`} color="cyan" />}
+      {canViewFinance && <StatCard label="الوارد الفعلي" value={`${egp(received)} ج.م`} hint={`مؤجل ${egp(Math.max(0,totalSales-received))}`} color="slate" />}
+      {canViewFinance && <StatCard label="المصروفات" value={`${egp(rangeExpenses)} ج.م`} color="pink" />}
       <StatCard label="أوامر الإنتاج" value={orders.length} hint={`${pending} قيد التنفيذ`} color="amber" />
       <StatCard label="الفواتير المحفوظة" value={archivedInvoices.length} color="pink" />
     </div>
@@ -1507,10 +1533,11 @@ function BannerCalculator({ settings, invoices, activeId, onAddInvoice, onSaveOr
 function AttendancePage({ employees, attendance, setAttendance, addAudit }) {
   const now = new Date(); const [month,setMonth]=useState(now.getMonth()+1); const [year,setYear]=useState(now.getFullYear()); const [employeeId,setEmployeeId]=useState(employees[0]?.id||"");
   const monthKey=`${year}-${String(month).padStart(2,"0")}`; const days=new Date(year,month,0).getDate(); const employee=employees.find(e=>e.id===employeeId); const records=attendance[monthKey]?.[employeeId]||{};
-  function statusFor(day){const d=new Date(year,month-1,day);return records[day] || (d.getDay()===5?"weekly":"present");}
+  function statusFor(day){const d=new Date(year,month-1,day);return records[day] || (d.getDay()===5?"weekly":"");}
+  function statusColor(status){return status==="present"?"border-emerald-500/70 bg-emerald-950/30":status==="absent"?"border-red-500/70 bg-red-950/30":status==="half"?"border-amber-500/70 bg-amber-950/30":status==="leave"?"border-violet-500/70 bg-violet-950/30":status==="weekly"?"border-blue-500/60 bg-blue-950/25":"border-slate-500/40 bg-slate-800/30";}
   function change(day,status){const next={...attendance,[monthKey]:{...(attendance[monthKey]||{}),[employeeId]:{...records,[day]:status}}};setAttendance(next);saveKey(ATTENDANCE_KEY,next);addAudit("تسجيل حضور",`${employee?.name} - ${day}/${month}: ${status}`);}
   const counts=Array.from({length:days},(_,i)=>statusFor(i+1)).reduce((a,s)=>({...a,[s]:(a[s]||0)+1}),{});
-  return <div className="space-y-4"><div className="bg-white rounded-2xl border border-slate-200 p-4"><div className="grid grid-cols-3 gap-3"><Field label="الموظف"><Select value={employeeId} onChange={setEmployeeId} options={employees.filter(e=>e.active).map(e=>({value:e.id,label:e.name}))}/></Field><Field label="الشهر"><NumInput value={month} onChange={e=>setMonth(Math.min(12,Math.max(1,Number(e.target.value)||1)))}/></Field><Field label="السنة"><NumInput value={year} onChange={e=>setYear(Number(e.target.value)||now.getFullYear())}/></Field></div><div className="grid grid-cols-4 gap-2 text-center text-xs"><div className="rounded-lg bg-emerald-950/40 p-2">حضور {counts.present||0}</div><div className="rounded-lg bg-red-950/40 p-2">غياب {counts.absent||0}</div><div className="rounded-lg bg-amber-950/40 p-2">نصف يوم {counts.half||0}</div><div className="rounded-lg bg-blue-950/40 p-2">إجازة {counts.leave||0}</div></div></div><div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">{Array.from({length:days},(_,i)=>i+1).map(day=>{const date=new Date(year,month-1,day);const friday=date.getDay()===5;return <div key={day} className={`bg-white rounded-xl border p-3 ${friday?"border-blue-500/50":"border-slate-200"}`}><div className="flex justify-between mb-2"><b>{day} / {month}</b><span className="text-xs text-slate-400">{date.toLocaleDateString("ar-EG",{weekday:"long"})}</span></div><Select value={statusFor(day)} onChange={value=>change(day,value)} options={[{value:"present",label:friday?"حاضر — يوم إضافي":"حاضر"},{value:"absent",label:"غياب"},{value:"half",label:"نصف يوم"},{value:"leave",label:"إجازة"},{value:"weekly",label:"إجازة أسبوعية"}]}/></div>})}</div></div>;
+  return <div className="space-y-4"><div className="bg-white rounded-2xl border border-slate-200 p-4"><div className="grid grid-cols-3 gap-3"><Field label="الموظف"><Select value={employeeId} onChange={setEmployeeId} options={employees.filter(e=>e.active).map(e=>({value:e.id,label:e.name}))}/></Field><Field label="الشهر"><NumInput value={month} onChange={e=>setMonth(Math.min(12,Math.max(1,Number(e.target.value)||1)))}/></Field><Field label="السنة"><NumInput value={year} onChange={e=>setYear(Number(e.target.value)||now.getFullYear())}/></Field></div><div className="grid grid-cols-5 gap-2 text-center text-xs"><div className="rounded-lg bg-emerald-900/50 text-emerald-200 p-2">حضور {counts.present||0}</div><div className="rounded-lg bg-red-900/50 text-red-200 p-2">غياب {counts.absent||0}</div><div className="rounded-lg bg-amber-900/50 text-amber-200 p-2">نصف يوم {counts.half||0}</div><div className="rounded-lg bg-violet-900/50 text-violet-200 p-2">إجازة {counts.leave||0}</div><div className="rounded-lg bg-blue-900/50 text-blue-200 p-2">جمعة {counts.weekly||0}</div></div></div><div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">{Array.from({length:days},(_,i)=>i+1).map(day=>{const date=new Date(year,month-1,day);const friday=date.getDay()===5;const status=statusFor(day);return <div key={day} className={`rounded-xl border p-3 transition-colors ${statusColor(status)}`}><div className="flex justify-between mb-2"><b>{day} / {month}</b><span className="text-xs text-slate-400">{date.toLocaleDateString("ar-EG",{weekday:"long"})}</span></div><Select value={status} onChange={value=>change(day,value)} options={[{value:"",label:"لم يتم التسجيل"},{value:"present",label:friday?"حاضر — يوم إضافي":"حاضر"},{value:"absent",label:"غياب"},{value:"half",label:"نصف يوم"},{value:"leave",label:"إجازة"},{value:"weekly",label:"إجازة أسبوعية"}]}/></div>})}</div></div>;
 }
 
 function PayrollPage({ employees, attendance, transactions, setTransactions, addAudit }) {
@@ -1721,7 +1748,7 @@ export default function App() {
   const secondaryTabs = activeSection.tabs.filter((id) => id !== "dashboard");
 
   return (
-    <div dir="rtl" className="min-h-screen bg-[#050a19] text-slate-100" style={{ fontFamily: "'Cairo', sans-serif" }}>
+    <div dir="rtl" className="min-h-screen bg-[#101a30] text-slate-100" style={{ fontFamily: "'Cairo', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap');
         @media print {
@@ -1731,20 +1758,20 @@ export default function App() {
           .print-area { position: absolute; top: 0; right: 0; left: 0; width: 100%; border: none !important; box-shadow: none !important; font-size: 13px; }
           .no-print { display: none !important; }
         }
-        .dark-workspace .bg-white { background-color: #111a2e !important; }
-        .dark-workspace .bg-stone-50, .dark-workspace .bg-slate-50 { background-color: #080e20 !important; }
-        .dark-workspace .bg-stone-100, .dark-workspace .bg-slate-100 { background-color: #172139 !important; }
-        .dark-workspace .border-stone-200, .dark-workspace .border-slate-200, .dark-workspace .border-stone-300 { border-color: #263450 !important; }
+        .dark-workspace .bg-white { background-color: #1b2943 !important; }
+        .dark-workspace .bg-stone-50, .dark-workspace .bg-slate-50 { background-color: #14203a !important; }
+        .dark-workspace .bg-stone-100, .dark-workspace .bg-slate-100 { background-color: #243451 !important; }
+        .dark-workspace .border-stone-200, .dark-workspace .border-slate-200, .dark-workspace .border-stone-300 { border-color: #3a4d6d !important; }
         .dark-workspace .text-stone-900, .dark-workspace .text-slate-900, .dark-workspace .text-stone-800, .dark-workspace .text-slate-800, .dark-workspace .text-stone-700 { color: #f1f5f9 !important; }
         .dark-workspace .text-stone-600, .dark-workspace .text-stone-500, .dark-workspace .text-slate-500 { color: #a6b3ca !important; }
-        .dark-workspace input, .dark-workspace select, .dark-workspace textarea { background:#070d1e !important; color:#f8fafc !important; border-color:#2a3958 !important; }
+        .dark-workspace input, .dark-workspace select, .dark-workspace textarea { background:#15223d !important; color:#f8fafc !important; border-color:#405474 !important; }
         .dark-workspace label span { color:#8fa1bf; }
         .dark-workspace .print-area { color:#111827; }
         .dark-workspace .print-area.bg-white { background:#fff !important; }
         .dark-workspace .print-area .text-stone-900, .dark-workspace .print-area .text-stone-800, .dark-workspace .print-area .text-stone-700 { color:#1c1917 !important; }
         .tabular-nums, input, select, textarea, button { font-family:'Cairo',sans-serif !important; }
       `}</style>
-      <aside className="no-print fixed right-0 top-0 bottom-0 z-30 w-64 bg-[#0b1327] border-l border-[#22304b] p-4 hidden lg:flex flex-col">
+      <aside className="no-print fixed right-0 top-0 bottom-0 z-30 w-64 bg-[#17233b] border-l border-[#334766] p-4 hidden lg:flex flex-col">
         <div className="rounded-2xl bg-[#080e20] border border-[#24314c] p-4 flex items-center gap-3">
           <img src={BRAND_LOGO} alt="مطبعة ألوان" className="w-16 h-14 object-contain rounded-lg bg-white" />
           <div><div className="font-bold text-white">مطبعة ألوان</div><div className="text-[10px] text-blue-300">نظام الإدارة المتكامل</div></div>
@@ -1765,9 +1792,9 @@ export default function App() {
         {secondaryTabs.length>0&&<div className="lg:hidden px-4 pb-3 flex gap-2 overflow-x-auto">{secondaryTabs.map(id=><button key={id} onClick={()=>setTab(id)} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-semibold border ${tab===id?"bg-blue-600 border-blue-500 text-white":"bg-[#10192e] border-[#263654] text-slate-400"}`}>{tabLabels[id]}</button>)}</div>}
       </header>
 
-      <main className="dark-workspace lg:mr-64 px-4 lg:px-7 py-6 pb-10 max-w-[1500px]">
+      <main className="dark-workspace lg:mr-64 px-4 lg:px-7 py-6 pb-10 max-w-[1180px] lg:ml-auto">
           <>
-            {tab === "dashboard" && <DashboardScreen archivedInvoices={archivedInvoices} orders={orders} production={production} canViewFinance={canViewFinance} user={currentUser} />}
+            {tab === "dashboard" && <DashboardScreen archivedInvoices={archivedInvoices} orders={orders} production={production} canViewFinance={canViewFinance} user={currentUser} expenses={expenses} employees={employees} />}
             {tab === "book" && <BookCalculator settings={settings} invoices={invoices} activeId={activeId} onAddInvoice={addInvoiceItem} onSaveOrder={handleSaveOrder} />}
             {tab === "plain" && <PlainCalculator settings={settings} invoices={invoices} activeId={activeId} onAddInvoice={addInvoiceItem} onSaveOrder={handleSaveOrder} />}
             {tab === "digital" && <DigitalPieceCalculator settings={settings} invoices={invoices} activeId={activeId} onAddInvoice={addInvoiceItem} onSaveOrder={handleSaveOrder} />}
@@ -1779,7 +1806,7 @@ export default function App() {
             {tab === "expense_entry" && <ExpensesScreen expenses={expenses} setExpenses={setExpenses} addAudit={addAudit} entryOnly/>} 
             {tab === "suppliers" && canViewFinance && <SuppliersScreen suppliers={suppliers} setSuppliers={setSuppliers} expenses={expenses} setExpenses={setExpenses} addAudit={addAudit}/>} 
             {tab === "archive" && <ArchiveScreen archivedInvoices={archivedInvoices} onOpen={handleOpenArchived} />}
-            {tab === "reports" && <ReportsScreen archivedInvoices={archivedInvoices} />}
+            {tab === "reports" && <ReportsScreen archivedInvoices={archivedInvoices} expenses={expenses} employees={employees} />}
             {tab === "orders" && <OrdersScreen orders={orders} />}
             {tab === "production" && <ProductionScreen production={production} setProduction={setProduction} user={currentUser} addAudit={addAudit} />}
             {tab === "settings" && isAdmin && <SettingsScreen settings={settings} setSettings={setSettings} onSave={handleSave} saveState={saveState} />}
