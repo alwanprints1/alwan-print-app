@@ -1586,21 +1586,24 @@ export default function App() {
   const isAdmin = currentUser.role === "admin";
   const canViewFinance = currentUser.role === "admin" || currentUser.role === "accountant";
 
-  const tabs = [
-    { id: "dashboard", label: "لوحة التحكم", group: "الرئيسية" },
-    { id: "book", label: "تسعير الكتب", group: "التسعير" },
-    { id: "plain", label: "طباعة عادية", group: "التسعير" },
-    { id: "digital", label: "ديجيتال بالقطعة", group: "التسعير" },
-    { id: "fixed", label: "منتجات ثابتة", group: "التسعير" },
-    { id: "invoice", label: `عروض وفواتير${invoices.length ? ` (${invoices.length})` : ""}`, group: "التسعير" },
-    { id: "production", label: "ترتيب الإنتاجية", group: "الإنتاج" },
-    { id: "orders", label: `طلبات الإنتاج${orders.length ? ` (${orders.length})` : ""}`, group: "الإنتاج" },
-    ...(canViewFinance ? [{ id: "archive", label: `الفواتير والعملاء (${archivedInvoices.length})`, group: "الحسابات" }, { id: "reports", label: "التقارير والأرباح", group: "الحسابات" }] : []),
-    ...(isAdmin ? [{ id: "settings", label: "أسعار الخامات", group: "الإدارة" }, { id: "employees", label: "الموظفون والصلاحيات", group: "الإدارة" }, { id: "audit", label: "سجل التعديلات", group: "الإدارة" }] : []),
+  const sections = [
+    { id: "dashboard", label: "لوحة التحكم", icon: "▦", defaultTab: "dashboard", tabs: ["dashboard"] },
+    { id: "pricing", label: "التسعير", icon: "▣", defaultTab: "book", tabs: ["book", "plain", "digital", "fixed", "invoice", ...(isAdmin ? ["settings"] : [])] },
+    { id: "production", label: "ترتيب الإنتاجية", icon: "⚙", defaultTab: "production", tabs: ["production", "orders"] },
+    ...(canViewFinance ? [{ id: "accounts", label: "الحسابات", icon: "●", defaultTab: "archive", tabs: ["archive", "reports"] }] : []),
+    ...(isAdmin ? [{ id: "staff", label: "الموظفين", icon: "♟", defaultTab: "employees", tabs: ["employees", "audit"] }] : []),
   ];
+  const tabLabels = {
+    book: "تسعير الكتب والملازم", plain: "الطباعة العادية والدعاية", digital: "الديجيتال بالقطعة", fixed: "المنتجات ذات السعر الثابت",
+    invoice: `عروض الأسعار والفواتير${invoices.length ? ` (${invoices.length})` : ""}`, settings: "الخامات والأسعار",
+    production: "لوحة ترتيب الإنتاج", orders: `طلبات الإنتاج (${orders.length})`, archive: `الفواتير والعملاء (${archivedInvoices.length})`, reports: "التقارير والأرباح",
+    employees: "الموظفون والصلاحيات", audit: "سجل التعديلات",
+  };
+  const activeSection = sections.find((section) => section.tabs.includes(tab)) || sections[0];
+  const secondaryTabs = activeSection.tabs.filter((id) => id !== "dashboard");
 
   return (
-    <div dir="rtl" className="min-h-screen bg-slate-100" style={{ fontFamily: "'IBM Plex Sans Arabic', sans-serif" }}>
+    <div dir="rtl" className="min-h-screen bg-[#050a19] text-slate-100" style={{ fontFamily: "'IBM Plex Sans Arabic', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
         @media print {
@@ -1610,24 +1613,40 @@ export default function App() {
           .print-area { position: absolute; top: 0; right: 0; left: 0; width: 100%; border: none !important; box-shadow: none !important; font-size: 13px; }
           .no-print { display: none !important; }
         }
+        .dark-workspace .bg-white { background-color: #111a2e !important; }
+        .dark-workspace .bg-stone-50, .dark-workspace .bg-slate-50 { background-color: #080e20 !important; }
+        .dark-workspace .bg-stone-100, .dark-workspace .bg-slate-100 { background-color: #172139 !important; }
+        .dark-workspace .border-stone-200, .dark-workspace .border-slate-200, .dark-workspace .border-stone-300 { border-color: #263450 !important; }
+        .dark-workspace .text-stone-900, .dark-workspace .text-slate-900, .dark-workspace .text-stone-800, .dark-workspace .text-slate-800, .dark-workspace .text-stone-700 { color: #f1f5f9 !important; }
+        .dark-workspace .text-stone-600, .dark-workspace .text-stone-500, .dark-workspace .text-slate-500 { color: #a6b3ca !important; }
+        .dark-workspace input, .dark-workspace select, .dark-workspace textarea { background:#070d1e !important; color:#f8fafc !important; border-color:#2a3958 !important; }
+        .dark-workspace label span { color:#8fa1bf; }
+        .dark-workspace .print-area { color:#111827; }
+        .dark-workspace .print-area.bg-white { background:#fff !important; }
+        .dark-workspace .print-area .text-stone-900, .dark-workspace .print-area .text-stone-800, .dark-workspace .print-area .text-stone-700 { color:#1c1917 !important; }
       `}</style>
-
-      <div className="bg-slate-950 no-print sticky top-0 z-20 shadow-xl">
-      <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-        <div><div className="flex items-center gap-2 text-stone-400 mb-1"><CMYKDots /><span className="text-[11px] tracking-widest">ALWAN ERP</span></div><h1 className="text-stone-50 text-xl font-bold">نظام إدارة مطبعة ألوان</h1></div>
-        <div className="text-left"><div className="text-white text-sm font-semibold">{currentUser.name}</div><div className="text-cyan-400 text-[11px]">{roleLabel(currentUser.role)}</div><button onClick={()=>{addAudit("تسجيل خروج");setCurrentUser(null);}} className="text-stone-400 text-[10px] hover:text-white">تسجيل الخروج</button></div>
-      </div>
-
-      <div className="max-w-6xl mx-auto px-4 no-print">
-        <div className="flex gap-2 overflow-x-auto pb-3">
-          {tabs.map((t) => (
-            <button key={t.id} onClick={() => setTab(t.id)} title={t.group} className={"shrink-0 rounded-xl px-4 py-2 text-sm font-medium transition whitespace-nowrap " + (tab === t.id ? "bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-900/30" : "bg-slate-800 text-stone-300 hover:bg-slate-700")}>{t.label}</button>
-          ))}
+      <aside className="no-print fixed right-0 top-0 bottom-0 z-30 w-64 bg-[#0b1327] border-l border-[#22304b] p-4 hidden lg:flex flex-col">
+        <div className="rounded-2xl bg-[#080e20] border border-[#24314c] p-4 flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-black text-xl">أ</div>
+          <div><div className="font-bold text-white">مطبعة ألوان</div><div className="text-[10px] text-blue-300">نظام الإدارة المتكامل</div></div>
         </div>
-      </div>
-      </div>
+        <div className="text-[10px] text-slate-500 font-semibold mt-7 mb-2 px-2">الأقسام الرئيسية</div>
+        <nav className="space-y-2">
+          {sections.map((section) => <button key={section.id} onClick={()=>setTab(section.defaultTab)} className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${activeSection.id===section.id ? "bg-blue-600 text-white shadow-lg shadow-blue-950/50" : "text-slate-300 hover:bg-[#17213a]"}`}><span className="w-6 text-center">{section.icon}</span><span>{section.label}</span>{section.id==="pricing"&&<span className="mr-auto text-[10px] opacity-70">{secondaryTabs.length}</span>}</button>)}
+        </nav>
+        <div className="mt-auto border-t border-[#22304b] pt-4"><div className="text-sm font-semibold">{currentUser.name}</div><div className="text-[10px] text-blue-400">{roleLabel(currentUser.role)}</div><button onClick={()=>{addAudit("تسجيل خروج");setCurrentUser(null);}} className="mt-2 text-xs text-slate-400 hover:text-white">تسجيل الخروج</button></div>
+      </aside>
 
-      <div className="max-w-6xl mx-auto px-4 py-6 pb-10">
+      <header className="no-print lg:mr-64 border-b border-[#1f2d48] bg-[#070d1e]/95 sticky top-0 z-20 backdrop-blur">
+        <div className="px-4 lg:px-7 py-4 flex items-center justify-between gap-4">
+          <div><h1 className="text-lg font-bold text-white">{activeSection.label}</h1><p className="text-[11px] text-slate-500">إدارة أعمال المطبعة بسرعة ودقة</p></div>
+          <div className="lg:hidden flex gap-2 overflow-x-auto">{sections.map(section=><button key={section.id} onClick={()=>setTab(section.defaultTab)} className={`shrink-0 rounded-lg px-3 py-2 text-xs ${activeSection.id===section.id?"bg-blue-600":"bg-[#16213a]"}`}>{section.label}</button>)}</div>
+          <div className="hidden lg:flex items-center gap-2 text-xs text-slate-400"><CMYKDots /><span>متصل وآمن</span></div>
+        </div>
+        {secondaryTabs.length>0&&<div className="px-4 lg:px-7 pb-3 flex gap-2 overflow-x-auto">{secondaryTabs.map(id=><button key={id} onClick={()=>setTab(id)} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-semibold border ${tab===id?"bg-blue-600 border-blue-500 text-white":"bg-[#10192e] border-[#263654] text-slate-400 hover:text-white"}`}>{tabLabels[id]}</button>)}</div>}
+      </header>
+
+      <main className="dark-workspace lg:mr-64 px-4 lg:px-7 py-6 pb-10 max-w-[1500px]">
           <>
             {tab === "dashboard" && <DashboardScreen archivedInvoices={archivedInvoices} orders={orders} production={production} canViewFinance={canViewFinance} user={currentUser} />}
             {tab === "book" && <BookCalculator settings={settings} invoices={invoices} activeId={activeId} onAddInvoice={addInvoiceItem} onSaveOrder={handleSaveOrder} />}
@@ -1643,7 +1662,7 @@ export default function App() {
             {tab === "employees" && isAdmin && <EmployeesScreen users={users} setUsers={setUsers} addAudit={addAudit} />}
             {tab === "audit" && isAdmin && <AuditScreen audit={audit} />}
           </>
-      </div>
+      </main>
     </div>
   );
 }
