@@ -74,6 +74,17 @@ const DEFAULT_SETTINGS = {
     { id: "ruler", name: "مسطرة", walkin: 0, loyal: 0, wholesale: 0 },
     { id: "pen", name: "قلم", walkin: 0, loyal: 0, wholesale: 0 },
   ],
+  bannerMaterials: [
+    { id: "banner-440", name: "بانر 440 جرام", pricePerM2: 75 },
+    { id: "flex", name: "فلكس", pricePerM2: 90 },
+  ],
+  bannerServices: [
+    { id: "wood", name: "خشب", pricing: "linear", price: 50 },
+    { id: "iron", name: "حديد", pricing: "linear", price: 80 },
+    { id: "lamination-banner", name: "لامينيشن", pricing: "area", price: 35 },
+    { id: "installation", name: "تركيب", pricing: "fixed", price: 100 },
+    { id: "design-banner", name: "تصميم", pricing: "fixed", price: 150 },
+  ],
   shop: {
     name: "مطبعة ألوان لخدمات الطباعة",
     phone: "01157101143",
@@ -155,11 +166,17 @@ const USERS_KEY = "alwan-system-users-v1";
 const AUDIT_KEY = "alwan-system-audit-v1";
 const BACKUPS_KEY = "alwan-system-backups-v1";
 const PRODUCTION_KEY = "alwan-system-production-v1";
+const EMPLOYEES_KEY = "alwan-system-employees-v1";
+const ATTENDANCE_KEY = "alwan-system-attendance-v1";
+const PAYROLL_TX_KEY = "alwan-system-payroll-transactions-v1";
 
 const DEFAULT_USERS = [
   { id: "admin-1", name: "مدير النظام", username: "admin", password: "admin123", role: "admin", active: true },
   { id: "accountant-1", name: "المحاسب", username: "accountant", password: "123456", role: "accountant", active: true },
   { id: "employee-1", name: "موظف المبيعات", username: "employee", password: "123456", role: "employee", active: true },
+];
+const DEFAULT_EMPLOYEES = [
+  { id: "emp-1", name: "موظف المبيعات", job: "مبيعات", phone: "", baseSalary: 0, active: true },
 ];
 
 async function loadKey(key, fallback) { try { return (await kvGet(key)) || fallback; } catch (e) { return fallback; } }
@@ -935,7 +952,7 @@ function InvoiceScreen({ invoices, setInvoices, activeId, setActiveId, settings,
   );
 }
 
-const PRODUCT_TYPE_LABELS = { book: "كتاب", plain: "طباعة عادية", "digital-piece": "ديجيتال بالقطعة", fixed: "سعر ثابت" };
+const PRODUCT_TYPE_LABELS = { book: "كتاب", plain: "طباعة عادية", "digital-piece": "ديجيتال بالقطعة", banner: "بانر", fixed: "سعر ثابت" };
 
 function ArchiveScreen({ archivedInvoices, onOpen }) {
   const [query, setQuery] = useState("");
@@ -1253,6 +1270,12 @@ function SettingsBackup({ settings, setSettings }) {
   );
 }
 
+function BannerSettings({ settings, setSettings }) {
+  const updateMaterial=(id,key,value)=>setSettings(p=>({...p,bannerMaterials:(p.bannerMaterials||[]).map(x=>x.id===id?{...x,[key]:value}:x)}));
+  const updateService=(id,key,value)=>setSettings(p=>({...p,bannerServices:(p.bannerServices||[]).map(x=>x.id===id?{...x,[key]:value}:x)}));
+  return <div className="space-y-4"><div className="bg-white rounded-2xl border border-stone-200 p-4"><SectionHeader title="خامات البانر" accent="bg-blue-600"/><div className="space-y-2">{(settings.bannerMaterials||[]).map(m=><div key={m.id} className="grid grid-cols-12 gap-2 items-center"><div className="col-span-6"><TextInput value={m.name} onChange={e=>updateMaterial(m.id,"name",e.target.value)}/></div><div className="col-span-4"><NumInput value={m.pricePerM2} onChange={e=>updateMaterial(m.id,"pricePerM2",Number(e.target.value)||0)} placeholder="سعر المتر²"/></div><button onClick={()=>setSettings(p=>({...p,bannerMaterials:p.bannerMaterials.filter(x=>x.id!==m.id)}))} className="col-span-2 text-red-400 text-xs">حذف</button></div>)}</div><button onClick={()=>setSettings(p=>({...p,bannerMaterials:[...(p.bannerMaterials||[]),{id:uid("mat"),name:"خامة جديدة",pricePerM2:0}]}))} className="mt-3 border border-dashed border-blue-500 text-blue-400 rounded-xl w-full py-2">+ إضافة خامة</button></div><div className="bg-white rounded-2xl border border-stone-200 p-4"><SectionHeader title="خدمات البانر" accent="bg-pink-500"/><div className="space-y-2">{(settings.bannerServices||[]).map(s=><div key={s.id} className="grid grid-cols-12 gap-2 items-center"><div className="col-span-4"><TextInput value={s.name} onChange={e=>updateService(s.id,"name",e.target.value)}/></div><div className="col-span-3"><Select value={s.pricing} onChange={v=>updateService(s.id,"pricing",v)} options={[{value:"area",label:"بالمتر²"},{value:"linear",label:"بالمتر الطولي"},{value:"piece",label:"بالقطعة"},{value:"fixed",label:"ثابت"}]}/></div><div className="col-span-3"><NumInput value={s.price} onChange={e=>updateService(s.id,"price",Number(e.target.value)||0)}/></div><button onClick={()=>setSettings(p=>({...p,bannerServices:p.bannerServices.filter(x=>x.id!==s.id)}))} className="col-span-2 text-red-400 text-xs">حذف</button></div>)}</div><button onClick={()=>setSettings(p=>({...p,bannerServices:[...(p.bannerServices||[]),{id:uid("svc-banner"),name:"خدمة جديدة",pricing:"fixed",price:0}]}))} className="mt-3 border border-dashed border-pink-500 text-pink-400 rounded-xl w-full py-2">+ إضافة خدمة</button></div></div>;
+}
+
 function SettingsScreen({ settings, setSettings, onSave, saveState }) {
   function update(path, value) {
     setSettings((prev) => {
@@ -1370,6 +1393,8 @@ function SettingsScreen({ settings, setSettings, onSave, saveState }) {
         <button onClick={addFixedItem} className="mt-3 w-full rounded-xl border-2 border-dashed border-cyan-400 text-cyan-700 py-2 text-sm font-semibold">+ إضافة منتج جديد</button>
       </div>
 
+      <BannerSettings settings={settings} setSettings={setSettings} />
+
       <SettingsBackup settings={settings} setSettings={setSettings} />
 
       <div className="fixed bottom-0 inset-x-0 bg-white border-t border-stone-200 p-3 no-print">
@@ -1446,6 +1471,53 @@ function ProductionScreen({ production, setProduction, user, addAudit }) {
   return <div className="space-y-4"><div className="bg-white rounded-2xl border border-slate-200 p-4"><SectionHeader title="إضافة مهمة إنتاج" accent="bg-cyan-500" /><div className="flex gap-2"><TextInput value={title} onChange={(e)=>setTitle(e.target.value)} placeholder="مثال: طباعة 500 كارت للأستاذ أحمد" /><button onClick={add} className="shrink-0 bg-slate-900 text-white rounded-xl px-4">إضافة</button></div></div><div className="grid gap-3">{production.map((p)=><div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-4"><div className="font-semibold text-slate-800">{p.title}</div><div className="text-[11px] text-slate-400 mt-1">بواسطة {p.by} — {new Date(p.createdAt).toLocaleString("ar-EG")}</div><div className="flex gap-2 mt-3">{[["new","جديد"],["working","جاري"],["done","تم"]].map(([id,label])=><button key={id} onClick={()=>status(p.id,id)} className={`rounded-lg px-3 py-1.5 text-xs ${p.status===id?"bg-cyan-600 text-white":"bg-slate-100 text-slate-500"}`}>{label}</button>)}</div></div>)}{!production.length&&<div className="text-center text-slate-400 bg-white rounded-2xl p-8">لا توجد مهام إنتاج.</div>}</div></div>;
 }
 
+function BannerCalculator({ settings, invoices, activeId, onAddInvoice, onSaveOrder }) {
+  const [materialId, setMaterialId] = useState(settings.bannerMaterials?.[0]?.id || "");
+  const [width, setWidth] = useState(1);
+  const [height, setHeight] = useState(1);
+  const [qty, setQty] = useState(1);
+  const [enabled, setEnabled] = useState({});
+  const [tier, setTier] = useState("walkin");
+  const material = (settings.bannerMaterials || []).find(m => m.id === materialId) || settings.bannerMaterials?.[0];
+  const area = Math.max(0, width * height * qty);
+  const perimeter = Math.max(0, (width + height) * 2 * qty);
+  const materialCost = area * (material?.pricePerM2 || 0);
+  const serviceCost = (service) => service.pricing === "area" ? area * service.price : service.pricing === "linear" ? perimeter * service.price : service.pricing === "piece" ? qty * service.price : service.price;
+  const selectedServices = (settings.bannerServices || []).filter(s => enabled[s.id]);
+  const servicesTotal = selectedServices.reduce((sum,s)=>sum+serviceCost(s),0);
+  const baseCost = materialCost + servicesTotal;
+  const marginPct = settings.margins[tier] || 0;
+  const total = baseCost * (1 + marginPct / 100);
+  const description = `${material?.name || "بانر"} ${width}×${height}م${selectedServices.length ? " + " + selectedServices.map(s=>s.name).join(" + ") : ""}`;
+  return <div className="space-y-5"><div className="bg-white rounded-2xl border border-stone-200 p-4"><SectionHeader title="تسعير البانر" accent="bg-blue-600" /><div className="grid grid-cols-2 md:grid-cols-4 gap-3"><Field label="الخامة"><Select value={materialId} onChange={setMaterialId} options={(settings.bannerMaterials||[]).map(m=>({value:m.id,label:m.name}))}/></Field><Field label="العرض بالمتر"><NumInput value={width} onChange={e=>setWidth(Number(e.target.value)||0)}/></Field><Field label="الطول بالمتر"><NumInput value={height} onChange={e=>setHeight(Number(e.target.value)||0)}/></Field><Field label="الكمية"><NumInput value={qty} onChange={e=>setQty(Math.max(1,Number(e.target.value)||1))}/></Field></div><TierPicker value={tier} onChange={setTier}/></div><div className="bg-white rounded-2xl border border-stone-200 p-4"><SectionHeader title="الخدمات الإضافية" accent="bg-pink-500" /><div className="grid md:grid-cols-2 gap-2">{(settings.bannerServices||[]).map(s=><label key={s.id} className={`flex items-center justify-between rounded-xl border p-3 cursor-pointer ${enabled[s.id]?"border-blue-500 bg-blue-950/30":"border-stone-200"}`}><span className="flex items-center gap-2"><input type="checkbox" checked={!!enabled[s.id]} onChange={e=>setEnabled({...enabled,[s.id]:e.target.checked})}/>{s.name}</span><span className="text-xs text-slate-400">{egp(serviceCost(s))} ج.م</span></label>)}</div></div><div className="bg-stone-900 rounded-2xl p-5"><ReceiptLine label={`المساحة ${egp(area)} م²`} value={egp(materialCost)}/>{selectedServices.map(s=><ReceiptLine key={s.id} label={s.name} value={egp(serviceCost(s))}/>) }<ReceiptLine label={`هامش ${marginPct}%`} value={egp(baseCost*marginPct/100)}/><div className="flex justify-between mt-4 pt-4 border-t border-slate-700"><span>الإجمالي</span><b className="text-2xl text-amber-300">{egp(total)} ج.م</b></div></div><OrderActions settings={settings} description={description} price={total} buildOrder={()=>({productType:"banner",specs:{material:material?.name,width,height,qty,area,services:selectedServices.map(s=>s.name)},costBreakdown:{materialCost,servicesTotal,baseCost},tier,marginPct,finalPrice:total})} onSaveOrder={onSaveOrder}/><AddToInvoiceButton invoices={invoices} activeId={activeId} onAdd={invId=>onAddInvoice(invId,{description,qty,price:total,productType:"banner"})}/></div>;
+}
+
+function AttendancePage({ employees, attendance, setAttendance, addAudit }) {
+  const now = new Date(); const [month,setMonth]=useState(now.getMonth()+1); const [year,setYear]=useState(now.getFullYear()); const [employeeId,setEmployeeId]=useState(employees[0]?.id||"");
+  const monthKey=`${year}-${String(month).padStart(2,"0")}`; const days=new Date(year,month,0).getDate(); const employee=employees.find(e=>e.id===employeeId); const records=attendance[monthKey]?.[employeeId]||{};
+  function statusFor(day){const d=new Date(year,month-1,day);return records[day] || (d.getDay()===5?"weekly":"present");}
+  function change(day,status){const next={...attendance,[monthKey]:{...(attendance[monthKey]||{}),[employeeId]:{...records,[day]:status}}};setAttendance(next);saveKey(ATTENDANCE_KEY,next);addAudit("تسجيل حضور",`${employee?.name} - ${day}/${month}: ${status}`);}
+  const counts=Array.from({length:days},(_,i)=>statusFor(i+1)).reduce((a,s)=>({...a,[s]:(a[s]||0)+1}),{});
+  return <div className="space-y-4"><div className="bg-white rounded-2xl border border-slate-200 p-4"><div className="grid grid-cols-3 gap-3"><Field label="الموظف"><Select value={employeeId} onChange={setEmployeeId} options={employees.filter(e=>e.active).map(e=>({value:e.id,label:e.name}))}/></Field><Field label="الشهر"><NumInput value={month} onChange={e=>setMonth(Math.min(12,Math.max(1,Number(e.target.value)||1)))}/></Field><Field label="السنة"><NumInput value={year} onChange={e=>setYear(Number(e.target.value)||now.getFullYear())}/></Field></div><div className="grid grid-cols-4 gap-2 text-center text-xs"><div className="rounded-lg bg-emerald-950/40 p-2">حضور {counts.present||0}</div><div className="rounded-lg bg-red-950/40 p-2">غياب {counts.absent||0}</div><div className="rounded-lg bg-amber-950/40 p-2">نصف يوم {counts.half||0}</div><div className="rounded-lg bg-blue-950/40 p-2">إجازة {counts.leave||0}</div></div></div><div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">{Array.from({length:days},(_,i)=>i+1).map(day=>{const date=new Date(year,month-1,day);const friday=date.getDay()===5;return <div key={day} className={`bg-white rounded-xl border p-3 ${friday?"border-blue-500/50":"border-slate-200"}`}><div className="flex justify-between mb-2"><b>{day} / {month}</b><span className="text-xs text-slate-400">{date.toLocaleDateString("ar-EG",{weekday:"long"})}</span></div><Select value={statusFor(day)} onChange={value=>change(day,value)} options={[{value:"present",label:friday?"حاضر — يوم إضافي":"حاضر"},{value:"absent",label:"غياب"},{value:"half",label:"نصف يوم"},{value:"leave",label:"إجازة"},{value:"weekly",label:"إجازة أسبوعية"}]}/></div>})}</div></div>;
+}
+
+function PayrollPage({ employees, attendance, transactions, setTransactions, addAudit }) {
+  const now=new Date();const [month,setMonth]=useState(now.getMonth()+1);const [year,setYear]=useState(now.getFullYear());const [form,setForm]=useState({employeeId:employees[0]?.id||"",type:"advance",amount:"",note:""});const key=`${year}-${String(month).padStart(2,"0")}`;
+  function addTx(){if(!form.employeeId||!Number(form.amount))return;const next=[...transactions,{...form,id:uid("tx"),amount:Number(form.amount),monthKey:key,at:new Date().toISOString()}];setTransactions(next);saveKey(PAYROLL_TX_KEY,next);addAudit("حركة راتب",`${form.type} - ${form.amount}`);setForm({...form,amount:"",note:""});}
+  function payroll(emp){const records=attendance[key]?.[emp.id]||{};const days=new Date(year,month,0).getDate();let absent=0,half=0,fridayWork=0;for(let d=1;d<=days;d++){const friday=new Date(year,month-1,d).getDay()===5;const s=records[d]||(friday?"weekly":"present");if(s==="absent")absent++;if(s==="half")half++;if(friday&&s==="present")fridayWork++;}const dayRate=(Number(emp.baseSalary)||0)/30;const tx=transactions.filter(t=>t.employeeId===emp.id&&t.monthKey===key);const advances=tx.filter(t=>t.type==="advance").reduce((s,t)=>s+t.amount,0);const deductions=tx.filter(t=>t.type==="deduction").reduce((s,t)=>s+t.amount,0);const incentives=tx.filter(t=>t.type==="incentive").reduce((s,t)=>s+t.amount,0);const attendanceDeduction=(absent+half*.5)*dayRate;const fridayBonus=fridayWork*dayRate;return{dayRate,absent,half,fridayWork,advances,deductions,incentives,attendanceDeduction,fridayBonus,net:(Number(emp.baseSalary)||0)-attendanceDeduction-advances-deductions+incentives+fridayBonus};}
+  return <div className="space-y-4"><div className="bg-white rounded-2xl border border-slate-200 p-4"><div className="grid grid-cols-2 gap-3"><Field label="الشهر"><NumInput value={month} onChange={e=>setMonth(Number(e.target.value)||1)}/></Field><Field label="السنة"><NumInput value={year} onChange={e=>setYear(Number(e.target.value)||now.getFullYear())}/></Field></div></div><div className="bg-white rounded-2xl border border-slate-200 p-4"><SectionHeader title="إضافة سلفة أو خصم أو حافز" accent="bg-amber-500"/><div className="grid md:grid-cols-4 gap-3"><Field label="الموظف"><Select value={form.employeeId} onChange={v=>setForm({...form,employeeId:v})} options={employees.map(e=>({value:e.id,label:e.name}))}/></Field><Field label="النوع"><Select value={form.type} onChange={v=>setForm({...form,type:v})} options={[{value:"advance",label:"سلفة"},{value:"deduction",label:"خصم"},{value:"incentive",label:"حافز"}]}/></Field><Field label="المبلغ"><NumInput value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})}/></Field><Field label="البيان"><TextInput value={form.note} onChange={e=>setForm({...form,note:e.target.value})}/></Field></div><button onClick={addTx} className="bg-blue-600 rounded-xl px-5 py-2 text-sm font-semibold">تسجيل الحركة</button></div><div className="space-y-3">{employees.filter(e=>e.active).map(emp=>{const p=payroll(emp);return <div key={emp.id} className="bg-white rounded-2xl border border-slate-200 p-4"><div className="flex justify-between"><div><b>{emp.name}</b><div className="text-xs text-slate-400">{emp.job}</div></div><div className="text-left"><div className="text-xs text-slate-400">صافي المستحق</div><b className="text-xl text-emerald-400">{egp(p.net)} ج.م</b></div></div><div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-4 text-xs"><div>الأساسي: {egp(emp.baseSalary)}</div><div>غياب: {p.absent} / نصف: {p.half}</div><div>سلف: {egp(p.advances)}</div><div>خصومات: {egp(p.deductions+p.attendanceDeduction)}</div><div>حوافز وجمع: {egp(p.incentives+p.fridayBonus)}</div></div></div>})}</div></div>;
+}
+
+function EmployeeSettingsPage({ employees, setEmployees, addAudit }) {
+  const blank={name:"",job:"",phone:"",baseSalary:0,active:true};const[form,setForm]=useState(blank);const[editId,setEditId]=useState(null);
+  function save(){if(!form.name.trim())return;const next=editId?employees.map(e=>e.id===editId?{...e,...form}:e):[...employees,{...form,id:uid("emp")}];setEmployees(next);saveKey(EMPLOYEES_KEY,next);addAudit(editId?"تعديل موظف":"إضافة موظف",form.name);setForm(blank);setEditId(null);}
+  function edit(e){setEditId(e.id);setForm({name:e.name,job:e.job||"",phone:e.phone||"",baseSalary:e.baseSalary||0,active:e.active!==false});}
+  function remove(id){if(!confirm("حذف الموظف من القوائم؟"))return;const next=employees.filter(e=>e.id!==id);setEmployees(next);saveKey(EMPLOYEES_KEY,next);addAudit("حذف موظف",id);}
+  return <div className="space-y-4"><div className="bg-white rounded-2xl border border-slate-200 p-4"><SectionHeader title={editId?"تعديل بيانات الموظف":"إضافة موظف"} accent="bg-blue-600"/><div className="grid grid-cols-2 md:grid-cols-4 gap-3"><Field label="الاسم"><TextInput value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></Field><Field label="الوظيفة"><TextInput value={form.job} onChange={e=>setForm({...form,job:e.target.value})}/></Field><Field label="الهاتف"><TextInput value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/></Field><Field label="الراتب الأساسي"><NumInput value={form.baseSalary} onChange={e=>setForm({...form,baseSalary:Number(e.target.value)||0})}/></Field></div><div className="flex gap-2"><button onClick={save} className="bg-blue-600 rounded-xl px-5 py-2 font-semibold">{editId?"حفظ التعديل":"إضافة الموظف"}</button>{editId&&<button onClick={()=>{setEditId(null);setForm(blank)}} className="bg-slate-700 rounded-xl px-5 py-2">إلغاء</button>}</div></div>{employees.map(e=><div key={e.id} className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center justify-between"><div><b>{e.name}</b><div className="text-xs text-slate-400">{e.job||"بدون وظيفة"} — {egp(e.baseSalary)} ج.م</div></div><div className="flex gap-2"><button onClick={()=>edit(e)} className="text-blue-400 text-xs">تعديل</button><button onClick={()=>remove(e.id)} className="text-red-400 text-xs">حذف</button></div></div>)}</div>;
+}
+
+function StaffHub(props){const[page,setPage]=useState("attendance");const pages=[{id:"attendance",label:"الحضور والانصراف"},{id:"payroll",label:"الرواتب والسلف"},{id:"settings",label:"إعدادات الموظفين"},{id:"accounts",label:"حسابات الدخول"}];return <div className="space-y-4"><div className="flex gap-2 overflow-x-auto">{pages.map(p=><button key={p.id} onClick={()=>setPage(p.id)} className={`shrink-0 rounded-xl px-4 py-2 text-sm ${page===p.id?"bg-blue-600":"bg-[#111a2e] border border-[#263450]"}`}>{p.label}</button>)}</div>{page==="attendance"&&<AttendancePage {...props}/>} {page==="payroll"&&<PayrollPage {...props}/>} {page==="settings"&&<EmployeeSettingsPage {...props}/>} {page==="accounts"&&<EmployeesScreen users={props.users} setUsers={props.setUsers} addAudit={props.addAudit}/>}</div>}
+
 function EmployeesScreen({ users, setUsers, addAudit }) {
   const [form, setForm] = useState({ name:"", username:"", password:"", role:"employee" });
   function add(){ if(!form.name||!form.username||!form.password)return; if(users.some(u=>u.username===form.username)) return alert("اسم المستخدم موجود بالفعل"); const next=[...users,{...form,id:uid("user"),active:true}]; setUsers(next); saveKey(USERS_KEY,next); addAudit("إضافة مستخدم",`${form.name} (${roleLabel(form.role)})`); setForm({name:"",username:"",password:"",role:"employee"}); }
@@ -1469,6 +1541,9 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [audit, setAudit] = useState([]);
   const [production, setProduction] = useState([]);
+  const [employees, setEmployees] = useState(DEFAULT_EMPLOYEES);
+  const [attendance, setAttendance] = useState({});
+  const [payrollTransactions, setPayrollTransactions] = useState([]);
 
   useEffect(() => {
     (async () => {
@@ -1481,6 +1556,9 @@ export default function App() {
       setUsers(await loadKey(USERS_KEY, DEFAULT_USERS));
       setAudit(await loadKey(AUDIT_KEY, []));
       setProduction(await loadKey(PRODUCTION_KEY, []));
+      setEmployees(await loadKey(EMPLOYEES_KEY, DEFAULT_EMPLOYEES));
+      setAttendance(await loadKey(ATTENDANCE_KEY, {}));
+      setPayrollTransactions(await loadKey(PAYROLL_TX_KEY, []));
       setLoaded(true);
     })();
   }, []);
@@ -1588,13 +1666,13 @@ export default function App() {
 
   const sections = [
     { id: "dashboard", label: "لوحة التحكم", icon: "▦", defaultTab: "dashboard", tabs: ["dashboard"] },
-    { id: "pricing", label: "التسعير", icon: "▣", defaultTab: "book", tabs: ["book", "plain", "digital", "fixed", "invoice", ...(isAdmin ? ["settings"] : [])] },
+    { id: "pricing", label: "التسعير", icon: "▣", defaultTab: "book", tabs: ["book", "plain", "digital", "banner", "fixed", "invoice", ...(isAdmin ? ["settings"] : [])] },
     { id: "production", label: "ترتيب الإنتاجية", icon: "⚙", defaultTab: "production", tabs: ["production", "orders"] },
     ...(canViewFinance ? [{ id: "accounts", label: "الحسابات", icon: "●", defaultTab: "archive", tabs: ["archive", "reports"] }] : []),
     ...(isAdmin ? [{ id: "staff", label: "الموظفين", icon: "♟", defaultTab: "employees", tabs: ["employees", "audit"] }] : []),
   ];
   const tabLabels = {
-    book: "تسعير الكتب والملازم", plain: "الطباعة العادية والدعاية", digital: "الديجيتال بالقطعة", fixed: "المنتجات ذات السعر الثابت",
+    book: "تسعير الكتب والملازم", plain: "الطباعة العادية والدعاية", digital: "الديجيتال بالقطعة", banner: "تسعير البانر", fixed: "المنتجات ذات السعر الثابت",
     invoice: `عروض الأسعار والفواتير${invoices.length ? ` (${invoices.length})` : ""}`, settings: "الخامات والأسعار",
     production: "لوحة ترتيب الإنتاج", orders: `طلبات الإنتاج (${orders.length})`, archive: `الفواتير والعملاء (${archivedInvoices.length})`, reports: "التقارير والأرباح",
     employees: "الموظفون والصلاحيات", audit: "سجل التعديلات",
@@ -1652,6 +1730,7 @@ export default function App() {
             {tab === "book" && <BookCalculator settings={settings} invoices={invoices} activeId={activeId} onAddInvoice={addInvoiceItem} onSaveOrder={handleSaveOrder} />}
             {tab === "plain" && <PlainCalculator settings={settings} invoices={invoices} activeId={activeId} onAddInvoice={addInvoiceItem} onSaveOrder={handleSaveOrder} />}
             {tab === "digital" && <DigitalPieceCalculator settings={settings} invoices={invoices} activeId={activeId} onAddInvoice={addInvoiceItem} onSaveOrder={handleSaveOrder} />}
+            {tab === "banner" && <BannerCalculator settings={settings} invoices={invoices} activeId={activeId} onAddInvoice={addInvoiceItem} onSaveOrder={handleSaveOrder} />}
             {tab === "fixed" && <FixedItemsCalculator settings={settings} invoices={invoices} activeId={activeId} onAddInvoice={addInvoiceItem} onSaveOrder={handleSaveOrder} />}
             {tab === "invoice" && <InvoiceScreen invoices={invoices} setInvoices={setInvoices} activeId={activeId} setActiveId={setActiveId} settings={settings} onArchive={handleArchiveInvoice} archiveStatus={archiveStatus} />}
             {tab === "archive" && <ArchiveScreen archivedInvoices={archivedInvoices} onOpen={handleOpenArchived} />}
@@ -1659,7 +1738,7 @@ export default function App() {
             {tab === "orders" && <OrdersScreen orders={orders} />}
             {tab === "production" && <ProductionScreen production={production} setProduction={setProduction} user={currentUser} addAudit={addAudit} />}
             {tab === "settings" && isAdmin && <SettingsScreen settings={settings} setSettings={setSettings} onSave={handleSave} saveState={saveState} />}
-            {tab === "employees" && isAdmin && <EmployeesScreen users={users} setUsers={setUsers} addAudit={addAudit} />}
+            {tab === "employees" && isAdmin && <StaffHub employees={employees} setEmployees={setEmployees} attendance={attendance} setAttendance={setAttendance} transactions={payrollTransactions} setTransactions={setPayrollTransactions} users={users} setUsers={setUsers} addAudit={addAudit} />}
             {tab === "audit" && isAdmin && <AuditScreen audit={audit} />}
           </>
       </main>
