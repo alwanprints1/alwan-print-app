@@ -1426,7 +1426,7 @@ function LoginScreen({ users, onLogin }) {
     onLogin(user);
   }
   return (
-    <div dir="rtl" className="min-h-screen bg-slate-950 flex items-center justify-center p-4" style={{ fontFamily: "'Tajawal', sans-serif" }}>
+    <div dir="rtl" className="min-h-screen bg-slate-950 flex items-center justify-center p-4" style={{ fontFamily: "'Cairo', sans-serif" }}>
       <div className="w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl">
         <div className="bg-gradient-to-br from-cyan-500 via-cyan-600 to-slate-900 p-7 text-white">
           <img src={BRAND_LOGO} alt="مطبعة ألوان" className="h-24 max-w-full object-contain mx-auto mb-3" />
@@ -1721,9 +1721,9 @@ export default function App() {
   const secondaryTabs = activeSection.tabs.filter((id) => id !== "dashboard");
 
   return (
-    <div dir="rtl" className="min-h-screen bg-[#050a19] text-slate-100" style={{ fontFamily: "'Tajawal', sans-serif" }}>
+    <div dir="rtl" className="min-h-screen bg-[#050a19] text-slate-100" style={{ fontFamily: "'Cairo', sans-serif" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap');
         @media print {
           @page { size: A5 landscape; margin: 8mm; }
           body * { visibility: hidden; }
@@ -1742,7 +1742,7 @@ export default function App() {
         .dark-workspace .print-area { color:#111827; }
         .dark-workspace .print-area.bg-white { background:#fff !important; }
         .dark-workspace .print-area .text-stone-900, .dark-workspace .print-area .text-stone-800, .dark-workspace .print-area .text-stone-700 { color:#1c1917 !important; }
-        .tabular-nums, input, select, textarea, button { font-family:'Tajawal',sans-serif !important; }
+        .tabular-nums, input, select, textarea, button { font-family:'Cairo',sans-serif !important; }
       `}</style>
       <aside className="no-print fixed right-0 top-0 bottom-0 z-30 w-64 bg-[#0b1327] border-l border-[#22304b] p-4 hidden lg:flex flex-col">
         <div className="rounded-2xl bg-[#080e20] border border-[#24314c] p-4 flex items-center gap-3">
